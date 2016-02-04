@@ -263,7 +263,7 @@ mutation.context.snv96 = function(maf) {
   final.mut.context[ind] = toupper(substring(as.character(rev.context), 10,12))
   
   
-  maf.mut.id = paste(final.mut.type, final.mut.context, final.mut.strand, sep="_")
+  maf.mut.id = paste(final.mut.type, final.mut.context, sep="_")
   Tumor_ID = as.factor(maf$Tumor_Sample_Barcode)
 
   ## Define all mutation types for 96 substitution scheme
