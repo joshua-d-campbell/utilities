@@ -135,7 +135,7 @@ mutation.context.snv192 = function(maf) {
 
   final.mut.type[ind] = paste(maf$Reference_Allele[ind], ">", maf$Tumor_Seq_Allele2[ind], sep="")
   final.mut.context[ind] = toupper(substring(as.character(maf$ref_context[ind]), 10,12))
-  final.mut.strand[ind] = ifelse(maf$Transcript_Strand[ind] == "+", "T", "U")
+  final.mut.strand[ind] = ifelse(maf$Transcript_Strand[ind] == "+", "U", "T")
 
   ## Get mutation context info for those on "-" strand
   rev.change = c("A>G","A>T","A>C","G>T","G>C","G>A")
@@ -148,7 +148,7 @@ mutation.context.snv192 = function(maf) {
 
   final.mut.type[ind] = paste(as.character(rev.refbase), ">", as.character(rev.altbase), sep="")
   final.mut.context[ind] = toupper(substring(as.character(rev.context), 10,12))
-  final.mut.strand[ind] = ifelse(maf$Transcript_Strand[ind] == "-", "T", "U")
+  final.mut.strand[ind] = ifelse(maf$Transcript_Strand[ind] == "-", "U", "T")
   
   
   maf.mut.id = paste(final.mut.type, final.mut.context, final.mut.strand, sep="_")
@@ -171,3 +171,66 @@ mutation.context.snv192 = function(maf) {
   
   return(list(mutation_table=mut.table, maf_mutations=mut.summary))  
 }
+
+
+
+
+
+###################
+# mutation.context.snv96
+#
+# Summarizes the 96 mutation contexts per sample
+#
+##################
+
+mutation.context.snv96 = function(maf) {
+
+  require(Biostrings)
+  
+  final.mut.type = rep(NA, nrow(maf))
+  final.mut.context = rep(NA, nrow(maf))
+  final.mut.strand = rep(NA, nrow(maf))
+    
+  ## Get mutation type
+  initial.maf.type = paste(maf$Reference_Allele, ">", maf$Tumor_Seq_Allele2, sep="")
+  
+  ## Get mutation context info for those on "+" strand
+  forward.change = c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
+  ind = maf$Variant_Type == "SNP" & initial.maf.type %in% forward.change
+
+  final.mut.type[ind] = paste(maf$Reference_Allele[ind], ">", maf$Tumor_Seq_Allele2[ind], sep="")
+  final.mut.context[ind] = toupper(substring(as.character(maf$ref_context[ind]), 10,12))
+
+  ## Get mutation context info for those on "-" strand
+  rev.change = c("A>G","A>T","A>C","G>T","G>C","G>A")
+  ind = maf$Variant_Type == "SNP" & initial.maf.type %in% rev.change
+
+  ## Reverse complement the context so only 6 mutation categories instead of 12
+  rev.context = reverseComplement(DNAStringSet(maf$ref_context[ind]))
+  rev.refbase = reverseComplement(DNAStringSet(maf$Reference_Allele[ind]))
+  rev.altbase = reverseComplement(DNAStringSet(maf$Tumor_Seq_Allele2[ind]))
+
+  final.mut.type[ind] = paste(as.character(rev.refbase), ">", as.character(rev.altbase), sep="")
+  final.mut.context[ind] = toupper(substring(as.character(rev.context), 10,12))
+  
+  
+  maf.mut.id = paste(final.mut.type, final.mut.context, final.mut.strand, sep="_")
+  Tumor_ID = as.factor(maf$Tumor_Sample_Barcode)
+
+  ## Define all mutation types for 96 substitution scheme
+  b1 = rep(c("A", "C", "G", "T"), each=24)
+  b2 = rep(rep(c("C", "T"), each=12), 4)
+  b3 = rep(c("A", "C", "G", "T"), 24)
+  mut.trinuc = apply(cbind(b1, b2, b3), 1, paste, collapse="")
+  mut.type = rep(rep(forward.change, each=4), 4)
+
+  mut.id = apply(cbind(mut.type, mut.trinuc), 1, paste, collapse="_")  
+
+  Mutation = factor(maf.mut.id, levels=mut.id)
+  
+  mut.table = xtabs(~ Mutation + Tumor_ID)
+  mut.summary = data.frame(Mutation, Type=final.mut.type, Context=final.mut.context, stringsAsFactors=FALSE)
+  
+  return(list(mutation_table=mut.table, maf_mutations=mut.summary))  
+}
+
