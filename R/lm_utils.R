@@ -62,13 +62,29 @@ spearman = function(m, p) {
   return(res)
 }
 
-wilcoxon = function(m, p) {
+wilcoxon = function(m, p, sort=TRUE) {
+  
+  if(length(unique(p)) != 2) {
+    stop("The vector p can only have 2 levels")
+  }
+  
   res = c()
   for(i in 1:nrow(m)) {
-    s = wilcox.test(as.numeric(m[i,]) ~ as.numeric(p))
-    res = cbind(res, c(Statistic=as.numeric(s$statistic), Pvalue=as.numeric(s$p.value)))
+    s = wilcox.test(as.numeric(m[i,]) ~ p)
+    a = aggregate(as.numeric(m[i,]), by=list(p), median)
+
+    temp = c(a[,2], as.numeric(s$statistic), as.numeric(s$p.value))
+    names(temp) = c(paste(a[1,1], "_Median", sep=""), paste(a[2,1], "_Median", sep=""), "Statistic", "Pvalue")
+    
+    res = rbind(res, temp)
   }
-  res = t(rbind(res, FDR=p.adjust(res["Pvalue",], 'fdr')))
+  rownames(res) = NULL
+  res = data.frame(Gene=rownames(m), res, FDR=p.adjust(res[,"Pvalue"], 'fdr'), stringsAsFactors=FALSE, check.names=FALSE)
+  
+  if(sort == TRUE) {
+    res = res[order(res$Pvalue),]
+  }
+ 
   return(res)
 }
 
