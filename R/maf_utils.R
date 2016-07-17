@@ -5,8 +5,8 @@
 #
 #################
 read.maf = function(file, class=c("dt", "df", "gr"), keys=c("Chromosome", "Start_position", "End_position", "Strand", "Reference_Allele", "Tumor_Seq_Allele1", "Tumor_Seq_Allele2"), standardize=TRUE, showProgress=FALSE, ...) {
-	require(data.table)
-	require(GenomicRanges)
+	suppressPackageStartupMessages(require(data.table))
+	suppressPackageStartupMessages(require(GenomicRanges))
     
 	class = match.arg(class)
 	
@@ -111,6 +111,110 @@ maf.genic = function(maf, index=FALSE)
 }
 
 
+#################
+# maf.truncating
+#
+# Scans "Variant_Classification" field in maf and outputs a subseted maf or an index correspoding to the
+# rows in the maf that have a truncating mutations (not including splice_site)
+#
+##################
+maf.truncating = function(maf, index=FALSE)
+{  
+  ix = maf$Variant_Classification %in% c("Nonsense_Mutation", "Frame_Shift_Ins", "Frame_Shift_Del", "De_novo_Start_OutOfFrame")
+
+  if(index == TRUE) {
+    return(ix)	  
+  } else {
+    return(maf[ix,])
+  }
+}
+
+
+#################
+# lof.pval
+#
+# Determines if a gene in each maf is enriched for loss of function (i.e. truncating) mutations 
+# using the Fisher's exact test.
+#
+##################
+lof.pval = function(maf) {
+	maf$Hugo_Symbol = as.factor(maf$Hugo_Symbol)
+ 
+	t.ix = maf.truncating(maf, index=TRUE)
+
+	## Calculate totals for numbers of LoF mutations vs. other mutations in each gene
+	gene.tot = aggregate(rep(1, nrow(maf)), by=list(maf$Hugo_Symbol), sum)
+	gene.tr = aggregate(t.ix, by=list(maf$Hugo_Symbol), sum)
+	gene.nt = aggregate(!t.ix, by=list(maf$Hugo_Symbol), sum)
+	gene.other = t(sapply(1:nrow(gene.tot), function(i) c(sum(gene.tr$x[-i]), sum(gene.nt$x[-i]))))
+
+	gene.ta = cbind(n1=gene.tr$x, n2=gene.nt$x, n3=gene.other[,1], n4=gene.other[,2])
+	rownames(gene.ta) = gene.tot[,1]
+
+	## Apply Fisher's exact test to each row
+	fet = function(v, alt="greater") {
+	  f = fisher.test(matrix(v, ncol=2), alternative=alt)
+	  d = c(OR=as.numeric(f$estimate), Pvalue=as.numeric(f$p.value))
+	}
+	res = t(apply(gene.ta, 1, fet))
+
+	res = data.frame(Gene=gene.tot[,1], gene.ta, res)
+	colnames(res) = c("Gene", "LOF_in_Gene", "Other_Mut_in_Gene", "Total_LOF_minus_Gene", "Total_Other_Mut_minus_Gene", "OR", "P")
+	return(res)
+}
+
+
+
+
+make.maf.id = function(maf, type=c("site", "patient", "custom"), sep="_", custom=NULL) {
+
+  ## Takes a maf and generates an ID that should be unique for each site or patient
+  ## Written by: Josh Campbell
+  ## 2-4-2016
+
+  ## Parameters: ##########################################################################################
+  # 
+  # maf			A data.frame or matrix with Mutation Annotation Format
+  # type		Determines the columns that will be used to make the ID. 
+  #				site: Chromosome, Start_position, End_position, Reference_Allele, Tumor_Seq_Allele2
+  #				patient: Same as site but with the addition of Tumor_Sample_Barcode, Matched_Norm_Sample_Barcode to make the ID scheme unique to each patient
+  #				custom: Uses column names from the "custom" variable.
+  #	sep			String used to collapse the selcted columns for each row of the maf
+  #	custom		Can pass a custom set of columns to use for collapsing the maf rows.
+  #
+  #########################################################################################################
+
+  ## Values: ###############################################################################################
+  # make.maf.id
+  #
+  # Returns a vector equal to the number of rows in the maf where each entry is a combination
+  # of the column scheme chosen with type
+  #
+  #########################################################################################################
+
+  type = match.arg(type)
+  
+  if(type == "site") {
+    cols = c("Chromosome", "Start_position", "End_position", "Reference_Allele", "Tumor_Seq_Allele2")
+  } else if (type == "patient") {
+    cols = c("Chromosome", "Start_position", "End_position", "Reference_Allele", "Tumor_Seq_Allele2", "Tumor_Sample_Barcode", "Matched_Norm_Sample_Barcode")
+  } else if (type == "custom") {
+    cols = custom
+    if (length(setdiff(cols, colnames(maf))) > 0 | is.null(custom)) {
+      stop("Customs columns to generate ids need to match colnames in maf.")
+    }
+  }
+  
+  maf.site.id = apply(maf[,cols], 1, paste, collapse=sep)
+  maf.site.id = gsub(" ", "", maf.site.id)
+  return(maf.site.id)
+}  
+
+
+
+
+
+
 ###################
 # mutation.context.snv192
 #
@@ -171,58 +275,6 @@ mutation.context.snv192 = function(maf) {
   
   return(list(mutation_table=mut.table, maf_mutations=mut.summary))  
 }
-
-
-
-
-
-
-make.maf.id = function(maf, type=c("site", "patient", "custom"), sep="_", custom=NULL) {
-
-  ## Takes a maf and generates an ID that should be unique for each site or patient
-  ## Written by: Josh Campbell
-  ## 2-4-2016
-
-  ## Parameters: ##########################################################################################
-  # 
-  # maf			A data.frame or matrix with Mutation Annotation Format
-  # type		Determines the columns that will be used to make the ID. 
-  #				site: Chromosome, Start_position, End_position, Reference_Allele, Tumor_Seq_Allele2
-  #				patient: Same as site but with the addition of Tumor_Sample_Barcode, Matched_Norm_Sample_Barcode to make the ID scheme unique to each patient
-  #				custom: Uses column names from the "custom" variable.
-  #	sep			String used to collapse the selcted columns for each row of the maf
-  #	custom		Can pass a custom set of columns to use for collapsing the maf rows.
-  #
-  #########################################################################################################
-
-  ## Values: ###############################################################################################
-  # make.maf.id
-  #
-  # Returns a vector equal to the number of rows in the maf where each entry is a combination
-  # of the column scheme chosen with type
-  #
-  #########################################################################################################
-
-  type = match.arg(type)
-  
-  if(type == "site") {
-    cols = c("Chromosome", "Start_position", "End_position", "Reference_Allele", "Tumor_Seq_Allele2")
-  } else if (type == "patient") {
-    cols = c("Chromosome", "Start_position", "End_position", "Reference_Allele", "Tumor_Seq_Allele2", "Tumor_Sample_Barcode", "Matched_Norm_Sample_Barcode")
-  } else if (type == "custom") {
-    cols = custom
-    if (length(setdiff(cols, colnames(maf))) > 0 | is.null(custom)) {
-      stop("Customs columns to generate ids need to match colnames in maf.")
-    }
-  }
-  
-  maf.site.id = apply(maf[,cols], 1, paste, collapse=sep)
-  maf.site.id = gsub(" ", "", maf.site.id)
-  return(maf.site.id)
-}  
-
-
-
 
 
 ###################
