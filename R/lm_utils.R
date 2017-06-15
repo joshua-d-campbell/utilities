@@ -157,7 +157,7 @@ lme.test = function(gene.matrix, fixed, random, covar, lme.method="ML", verbose=
   require(nlme)
   
   ## Set up an initial formula with the first gene 
-  gene.matrix = as.matrix(gene.matrix)
+  gene.matrix = as.matrix(gene.matrix, data=covar)
   gene = gene.matrix[1,]
   form.fixed =  as.formula(paste(c("gene", as.character(fixed)), collapse=" "))
   
