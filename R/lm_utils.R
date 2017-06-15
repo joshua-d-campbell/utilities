@@ -163,9 +163,9 @@ lme.test = function(gene.matrix, fixed, random, covar, lme.method="ML", verbose=
   
   ## Set up the results matrices
   m = model.matrix(form.fixed)
-  lme.tstat <- matrix(NA, nrow=nrow(data), ncol=ncol(m), dimnames=list(rownames(gene.matrix), colnames(m)))
-  lme.coef <- matrix(NA, nrow=nrow(data), ncol=ncol(m), dimnames=list(rownames(gene.matrix), colnames(m)))
-  lme.pval <- matrix(NA, nrow=nrow(data), ncol=ncol(m), dimnames=list(rownames(gene.matrix), colnames(m)))
+  lme.tstat <- matrix(NA, nrow=nrow(gene.matrix), ncol=ncol(m), dimnames=list(rownames(gene.matrix), colnames(m)))
+  lme.coef <- matrix(NA, nrow=nrow(gene.matrix), ncol=ncol(m), dimnames=list(rownames(gene.matrix), colnames(m)))
+  lme.pval <- matrix(NA, nrow=nrow(gene.matrix), ncol=ncol(m), dimnames=list(rownames(gene.matrix), colnames(m)))
 
   ## Iterate through each gene and apply the model 
   for(i in 1:nrow(gene.matrix)) {
