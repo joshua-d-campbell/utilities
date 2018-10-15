@@ -71,7 +71,7 @@ wilcoxon = function(m, p, sort=TRUE) {
   res = c()
   for(i in 1:nrow(m)) {
     s = wilcox.test(as.numeric(m[i,]) ~ p)
-    a = aggregate(as.numeric(m[i,]), by=list(p), median)
+    a = aggregate(as.numeric(m[i,]), by=list(p), median, na.rm = FALSE)
 
     temp = c(a[,2], as.numeric(s$statistic), as.numeric(s$p.value))
     names(temp) = c(paste(a[1,1], "_Median", sep=""), paste(a[2,1], "_Median", sep=""), "Statistic", "Pvalue")
