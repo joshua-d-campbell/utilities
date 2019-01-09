@@ -14,6 +14,7 @@ gistic2GR = function(locs, padding=0) {
 }
 
 
+
 intersect.gistic = function(gistic.file1, gistic.file2, id1=basename(gistic.file1), id2=basename(gistic.file2), padding=1e6, max.genes=25, max.size=10e6, keep.non.focal=FALSE) {
   
   ## Read in gistic files    
@@ -198,5 +199,54 @@ plot.peak.expression = function(c, g, cnv.states = c(-2,-1,0,1,2), cnv.col = c("
     legend("bottomright", legend=as.character(cnv.states), col=cnv.col, pch=15)
   }
 
+}
+
+
+
+normalize.q = function(q, min.q=1e-128) {
+  q[q < min.q] = min.q
+  q = log(-log10(q))
+  q[is.na(q) | is.infinite(q)] = -1
+  return(q)
+}
+
+plot.intersect.gistic = function(gistic.intersection, label=c(1,2,3), xlab="GISTIC_1", ylab="GISTIC_2") {
+  require(ggplot2)
+  require(ggrepel)
+  label = match.arg(label)
+  gi = gistic.intersection
+  
+  l1 = as.character(gi$label1)  
+  l2 = as.character(gi$label2)  
+  if (label == 1) {
+    l = gi$label1
+    l[is.na(l)] = as.character(gi$label2)[is.na(l)]
+  } else if(label == 2) {
+    l = gi$label2  
+    l[is.na(l)] = as.character(gi$label1)[is.na(l)]    
+  } else {
+    l = rep("", nrow(gi))
+    i = l1 == l2 & !is.na(l1) & !is.na(l2)
+    l[i] = l1[i]
+    i = l1 != l2 & !is.na(l1) & !is.na(l2)
+    l[i] = paste0(l1[i], "||", l2[i])
+    i = is.na(l1) & !is.na(l2)
+    l[i] = paste0("||", l2[i])    
+    i = is.na(gi$label2) & !is.na(l1) 
+    l[i] = paste0("||", l1[i])    
+  }
+  
+  gi.q1 = normalize.q(gi$q_value1)
+  gi.q2 = normalize.q(gi$q_value2)
+
+  x.tick = c(-1, log(c(-log10(0.25), 2^(0:7))))
+  x.tick.lab = c("NS", 0.25, 2^(0:7))
+
+  qplot(gi.q1, gi.q2) + geom_text_repel(aes(label=l), size=2) +
+        geom_hline(yintercept=x.tick[2], color="red", size=1) +
+        geom_vline(xintercept=x.tick[2], color="red", size=1) +
+  		scale_x_continuous(breaks=x.tick, labels=x.tick.lab) + 
+  		scale_y_continuous(breaks=x.tick, labels=x.tick.lab) +
+  		theme_bw() + xlab(xlab) + ylab(ylab)
 }
 
