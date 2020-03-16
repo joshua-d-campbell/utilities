@@ -33,6 +33,7 @@ plotSoftThreshold = function(datExpr, powerVector = 1:20, RsquaredCut = 0.90, co
   sft = pickSoftThreshold(datExpr, powerVector = powerVector, RsquaredCut = RsquaredCut, corFnc = corFnc, networkType = networkType, verbose = 5)
 
   if(!is.null(savePlots)) {
+    pdf(savePlots, useDingbats=FALSE)
     cex1 = 0.9;
     plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",main = paste("Scale independence"));
     text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],labels=powerVector,cex=cex1,col="red");
@@ -48,6 +49,7 @@ plotSoftThreshold = function(datExpr, powerVector = 1:20, RsquaredCut = 0.90, co
       softConn = softConnectivity(datExpr, corFnc = corFnc, type = networkType, power=i)
 	  scaleFreePlot(softConn, main=paste("Power=", i, sep=""))
     }
+    dev.off()
   }
   return(sft$powerEstimate)
 }
@@ -250,10 +252,8 @@ wgcnaReturnTOM = function(datExpr, softPower = 6, corFnc="cor", networkType="uns
   colorOrder = c("grey", setdiff(colorOrder, "grey"))
   moduleIDs = match(mergedColors, colorOrder)-1;
   
-  }
-  
   cat("Completed!\n")
-  return(list(modules=data.frame("Gene"=colnames(datExpr), "ID"=moduleIDs, "Color"=mergedColors), "MEs"=mergedMEs), "TOM"=1-dissTOM)
+  return(list(modules=data.frame("Gene"=colnames(datExpr), "ID"=moduleIDs, "Color"=mergedColors), "MEs"=mergedMEs, "TOM"=1-dissTOM))
 }
 
 
