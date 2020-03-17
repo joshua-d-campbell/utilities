@@ -288,3 +288,66 @@ wgcnaModuleDC = function(datExpr1, datExpr2, powerVector = 1:20, RsquaredCut = 0
 
 }
 
+
+
+clusterMEs = function(MEs, coln) {
+  require(mclust)
+  clust.num = c()
+  clust.labels = c()
+  tert.labels = c()
+  all.models = list()
+  for(i in 1:ncol(MEs)) {
+    model = Mclust(MEs[,i], verbose = FALSE)
+    clust.num = c(clust.num, model$G)
+    clust.labels = rbind(clust.labels, model$classification)
+    all.models = c(all.models, list(model))
+    
+    tert = as.numeric(cut(MEs[,i], quantile(MEs[,i], c(0, 0.33, 0.66, 1)), include.lowest = TRUE))
+    tert.labels = rbind(tert.labels, tert)
+  }
+  rownames(clust.labels) = colnames(MEs)
+  colnames(clust.labels) = coln
+  rownames(tert.labels) = colnames(MEs)
+  colnames(tert.labels) = coln
+  return(list(tert=tert.labels, clust=clust.labels))
+}
+
+
+fill = function(v, n) { return(c(v, rep("", n-length(v))))}
+
+createWGCNATable = function(res, norm, entrez, symbol, prefix, n=nrow(norm)) {
+  
+  summary.symbol = c()
+  summary.entrez = c()
+  for(i in colnames(res$MEs)) {
+    ix.color = gsub("ME", "", i)
+    ix = res$modules$Color == ix.color  
+    
+    temp.cor = cor(res$MEs[,i], t(norm[ix,]))
+    direction = sign(temp.cor)
+    
+    pos.ix = which(ix)[direction == 1]
+    neg.ix = which(ix)[direction == -1]
+    pos.ix = pos.ix[order(temp.cor[direction == 1], decreasing=T)]
+    neg.ix = neg.ix[order(temp.cor[direction == -1], decreasing=F)]
+    
+    pos = setdiff(symbol[pos.ix], "")
+    neg = setdiff(symbol[neg.ix], "")
+    temp = cbind(fill(pos, nrow(norm)), fill(neg, nrow(norm)))
+    colnames(temp) = paste(ix.color, c("positive", "negative"), sep="_")
+    summary.symbol = cbind(summary.symbol, temp)
+    
+    pos = setdiff(entrez[pos.ix], "")
+    neg = setdiff(entrez[neg.ix], "")
+    temp = cbind(fill(pos, nrow(norm)), fill(neg, nrow(norm)))
+    colnames(temp) = paste(ix.color, c("positive", "negative"), sep="_")
+    summary.entrez = cbind(summary.entrez, temp)
+    
+  }  
+  write.table(summary.symbol, paste0(prefix, "_ME_Genes_Symbol.txt"), sep="\t", row.names=FALSE, quote=FALSE)
+  write.table(summary.entrez, paste0(prefix, "_ME_Genes_Entrez.txt"), sep="\t", row.names=FALSE, quote=FALSE)
+  
+  return(list(symbol=summary.symbol, entrez=summary.entrez))
+}
+
+
